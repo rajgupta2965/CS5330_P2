@@ -299,6 +299,109 @@ cv::Mat bottom_region_hsv_histogram(const cv::Mat& image, int h_bins, int s_bins
 }
 
 // ============================================================
+// Extension: Banana Finder
+// ============================================================
+double banana_feature(const cv::Mat& image) {
+    cv::Mat hsv_image;
+    cv::cvtColor(image, hsv_image, cv::COLOR_BGR2HSV);
+
+    // Define range for yellow color in HSV
+    cv::Scalar lower_yellow = cv::Scalar(20, 100, 100);
+    cv::Scalar upper_yellow = cv::Scalar(30, 255, 255);
+
+    cv::Mat mask;
+    cv::inRange(hsv_image, lower_yellow, upper_yellow, mask);
+
+    int yellow_pixels = cv::countNonZero(mask);
+    int total_pixels = image.rows * image.cols;
+
+    return (total_pixels > 0) ? ((double)yellow_pixels / total_pixels) * 100.0 : 0.0;
+}
+
+// ============================================================
+// Extension: Trash Can Finder
+// ============================================================
+double trash_can_feature(const cv::Mat& image) {
+    cv::Mat hsv_image;
+    cv::cvtColor(image, hsv_image, cv::COLOR_BGR2HSV);
+
+    // Define range for blue color in HSV
+    cv::Scalar lower_blue = cv::Scalar(100, 100, 100);
+    cv::Scalar upper_blue = cv::Scalar(140, 255, 255);
+
+    cv::Mat mask;
+    cv::inRange(hsv_image, lower_blue, upper_blue, mask);
+
+    int blue_pixels = cv::countNonZero(mask);
+    int total_pixels = image.rows * image.cols;
+
+    return (total_pixels > 0) ? ((double)blue_pixels / total_pixels) * 100.0 : 0.0;
+}
+
+// ============================================================
+// Extension: Face Detector
+// ============================================================
+int face_feature(const cv::Mat& image) {
+    static cv::CascadeClassifier face_cascade;
+    static bool cascade_loaded = false;
+    if (!cascade_loaded) {
+        if (face_cascade.load("haarcascade_frontalface_default.xml")) {
+            cascade_loaded = true;
+        } else {
+            std::cerr << "Warning: Could not load face cascade model. Face feature will not work." << std::endl;
+            return 0;
+        }
+    }
+
+    if (!cascade_loaded || image.empty()) {
+        return 0;
+    }
+
+    std::vector<cv::Rect> faces;
+    cv::Mat gray;
+    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+    cv::equalizeHist(gray, gray);
+
+    face_cascade.detectMultiScale(gray, faces, 1.1, 2, 0 | cv::CASCADE_SCALE_IMAGE, cv::Size(30, 30));
+    return faces.size();
+}
+
+// ============================================================
+// Extension: Gabor Filter
+// ============================================================
+std::vector<double> gabor_feature(const cv::Mat& image) {
+    cv::Mat gray;
+    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+    gray.convertTo(gray, CV_32F);
+
+    std::vector<double> features;
+    double a[] = {0, CV_PI/4.0, CV_PI/2.0, 3.0*CV_PI/4.0};
+    double b[] = {5.0, 10.0};
+
+    for (double theta : a) {
+        for (double lambda : b) {
+            cv::Mat kernel = cv::getGaborKernel(cv::Size(15, 15), 3.0, theta, lambda, 0.5, 0, CV_32F);
+            cv::Mat dest;
+            cv::filter2D(gray, dest, CV_32F, kernel);
+
+            cv::Scalar mean, stddev;
+            cv::meanStdDev(dest, mean, stddev);
+            features.push_back(mean.val[0]);
+            features.push_back(stddev.val[0]);
+        }
+    }
+    return features;
+}
+
+double euclidean_distance(const std::vector<double>& v1, const std::vector<double>& v2) {
+    double sum = 0.0;
+    for (size_t i = 0; i < v1.size(); ++i) {
+        sum += (v1[i] - v2[i]) * (v1[i] - v2[i]);
+    }
+    return std::sqrt(sum);
+}
+
+// ============================================================
 // Main Matching Function
 // ============================================================
 std::vector<Match> find_matches(const std::string& target_image_path,
@@ -309,7 +412,7 @@ std::vector<Match> find_matches(const std::string& target_image_path,
                                 const std::string& dnn_metric) {
     std::vector<Match> matches;
 
-    if (task == "dnn") {
+    if (task == "dnn" || task == "custom_dnn") {
         std::map<std::string, std::vector<float>> embeddings = read_embeddings_csv(csv_path);
         if (embeddings.empty()) return matches;
 
@@ -339,7 +442,17 @@ std::vector<Match> find_matches(const std::string& target_image_path,
     } else {
         std::vector<std::string> image_files = get_image_files(image_database_path);
         cv::Mat target_image = cv::imread(target_image_path);
-        if (target_image.empty()) return matches;
+        if (target_image.empty() && task != "banana" && task != "trashcan") return matches;
+
+        int target_face_feature = 0;
+        if (task == "face") {
+            target_face_feature = face_feature(target_image);
+        }
+        
+        std::vector<double> target_gabor_feature;
+        if (task == "gabor") {
+            target_gabor_feature = gabor_feature(target_image);
+        }
 
         for (const auto& file_path : image_files) {
             if (file_path == target_image_path) continue;
@@ -401,6 +514,18 @@ std::vector<Match> find_matches(const std::string& target_image_path,
                 double texture_dist = histogram_intersection(target_texture, curr_texture);
 
                 distance = 0.30 * whole_hsv_dist + 0.20 * top_hsv_dist + 0.20 * bottom_hsv_dist + 0.15 * texture_dist + 0.15 * edge_dist;
+            } else if (task == "banana") {
+                double current_banana_feature = banana_feature(current_image);
+                distance = 100.0 - current_banana_feature;
+            } else if (task == "trashcan") {
+                double current_trashcan_feature = trash_can_feature(current_image);
+                distance = 100.0 - current_trashcan_feature;
+            } else if (task == "face") {
+                int current_face_feature = face_feature(current_image);
+                distance = std::abs(target_face_feature - current_face_feature);
+            } else if (task == "gabor") {
+                std::vector<double> current_gabor_feature = gabor_feature(current_image);
+                distance = euclidean_distance(target_gabor_feature, current_gabor_feature);
             }
             matches.push_back({file_path, distance});
         }

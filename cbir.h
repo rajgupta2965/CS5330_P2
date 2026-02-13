@@ -32,12 +32,17 @@ cv::Mat hsv_histogram(const cv::Mat& image, int h_bins, int s_bins);
 cv::Mat top_region_hsv_histogram(const cv::Mat& image, int h_bins, int s_bins);
 cv::Mat bottom_region_hsv_histogram(const cv::Mat& image, int h_bins, int s_bins);
 double compute_edge_density(const cv::Mat& image);
+double banana_feature(const cv::Mat& image);
+double trash_can_feature(const cv::Mat& image);
+int face_feature(const cv::Mat& image);
+std::vector<double> gabor_feature(const cv::Mat& image);
 
 // Distance metric functions
 double ssd(const cv::Mat& f1, const cv::Mat& f2);
 double histogram_intersection(const cv::Mat& h1, const cv::Mat& h2);
 double cosine_distance(const std::vector<float>& v1, const std::vector<float>& v2);
 double ssd_embedding(const std::vector<float>& v1, const std::vector<float>& v2);
+double euclidean_distance(const std::vector<double>& v1, const std::vector<double>& v2);
 
 // Utility functions
 std::vector<std::string> get_image_files(const std::string& dir_path);

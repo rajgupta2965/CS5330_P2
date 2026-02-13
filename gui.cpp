@@ -53,8 +53,8 @@ int main(int, char**) {
     std::vector<Match> matches;
     std::vector<GLuint> match_textures;
     
-    const char* tasks[] = { "Baseline", "Histogram (Color)", "Multi-Histogram", "Texture & Color", "Deep Network (DNN)", "Custom (Sunset)" };
-    const char* task_keys[] = { "baseline", "histogram", "multi-histogram", "texture-color", "dnn", "custom" };
+    const char* tasks[] = { "Baseline", "Histogram (Color)", "Multi-Histogram", "Texture & Color", "Deep Network (DNN)", "Custom DNN (ResNet18)", "Custom (Sunset)", "Banana Finder", "Blue Trash Can Finder", "Face Detector", "Gabor Filter (Texture)" };
+    const char* task_keys[] = { "baseline", "histogram", "multi-histogram", "texture-color", "dnn", "custom_dnn", "custom", "banana", "trashcan", "face", "gabor" };
     static int current_task = 0;
 
     const char* results_options[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" };
@@ -105,7 +105,13 @@ int main(int, char**) {
 
         if (ImGui::Button("Execute Search")) {
             if (!target_image_path.empty()) {
-                matches = find_matches(target_image_path, task_keys[current_task], std::stoi(results_options[num_results]), "olympus");
+                std::string task = task_keys[current_task];
+                std::string csv_path = "ResNet18_olym.csv"; // Default
+                if (task == "custom_dnn") {
+                    csv_path = "Custom_ResNet18_olym.csv";
+                }
+                
+                matches = find_matches(target_image_path, task, std::stoi(results_options[num_results]), "olympus", csv_path);
                 
                 // Clear old textures
                 for(auto& tex : match_textures) glDeleteTextures(1, &tex);
@@ -127,7 +133,8 @@ int main(int, char**) {
 
         // Results display
         ImGui::Text("Results:");
-        for (size_t i = 0; i < matches.size(); ++i) {
+        int actual_num_results = std::stoi(results_options[num_results]);
+        for (size_t i = 0; i < matches.size() && i < actual_num_results; ++i) {
             if (i % 5 != 0) ImGui::SameLine();
             ImGui::BeginGroup();
             if (match_textures[i] != 0) {

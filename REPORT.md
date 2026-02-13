@@ -135,7 +135,29 @@ This section compares DNN results against a classic feature method (Texture and 
 
 ## Extensions
 
-No extensions were implemented beyond the core project requirements.
+### Interactive GUI
+An interactive GUI was developed for the project as an extension. This GUI, built with the ImGui library, provides a user-friendly interface for the CBIR system.
+
+**Features:**
+*   **Image Browser**: A "Browse..." button opens a native file dialog, allowing the user to select any target image from the file system.
+*   **Interactive Controls**: Dropdown menus are used to select the matching algorithm and the number of results to display.
+*   **Visual Feedback**: The selected target image and the corresponding matched images are displayed visually in the application window, along with their calculated distances.
+*   **Real-time Interaction**: The interface includes an "Execute Search" button to run queries on demand and a "Close" button to exit the application.
+
+![GUI Screenshot](GUI_Screenshot.png) 
+*(Note to user: Please take a screenshot of the running GUI and save it as `GUI_Screenshot.png` in the project root for this image to be displayed.)*
+
+### Additional Matching Methods
+Several new feature matching methods were added as extensions:
+
+*   **Banana Finder**: A simple color-based detector that ranks images by the percentage of yellow pixels they contain. This is effective for finding images with prominent yellow objects.
+*   **Blue Trash Can Finder**: Similar to the banana finder, this method ranks images by the percentage of a specific shade of blue, designed to find the blue trash cans present in the dataset.
+*   **Face Detector**: This method uses an OpenCV Haar Cascade classifier to detect faces in images. It ranks images based on the number of faces detected compared to the target image.
+*   **Gabor Filter (Texture)**: This method uses a bank of Gabor filters with different orientations and frequencies to create a feature vector describing the texture of an image. It is effective for retrieving images with similar textural patterns.
+*   **Custom DNN (ResNet18)**: This extension uses a utility program (`generate_embeddings`) to process the entire image database through a local ONNX ResNet18 model, creating a new `Custom_ResNet18_olym.csv` file. The GUI can then use this custom-generated set of embeddings for matching, allowing for direct comparison with other pre-computed feature sets.
+
+## Time Travel Days
+3 days used.
 
 ## Reflection
 
@@ -150,3 +172,4 @@ The process of building, debugging, and verifying the C++ application provided v
 *   **Professor Bruce Maxwell** and the course materials for CS5330, which provided the project specification, sample code, and theoretical foundation.
 *   **OpenCV Documentation:** For references on histogram calculation, Sobel filters, and other image processing functions.
 *   **Shapiro and Stockman, "Computer Vision":** For concepts related to histogram matching.
+*   **An AI assistant (Gemini):** Was used to help write and debug code, implement the ImGui interface, and for project documentation.

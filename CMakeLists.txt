@@ -42,3 +42,7 @@ target_link_libraries(Project2_GUI PRIVATE
     glfw
     OpenGL::GL # Link against OpenGL target from find_package(OpenGL)
 )
+
+# Embedding generator utility
+add_executable(generate_embeddings generate_embeddings.cpp ${COMMON_SOURCES})
+target_link_libraries(generate_embeddings ${OpenCV_LIBS})
