@@ -3,10 +3,9 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <cmath>
 
-// ============================================================
-// Utility: Get list of image files from a directory
-// ============================================================
+// grabs all image files from a directory and sorts them
 std::vector<std::string> get_image_files(const std::string& dir_path) {
     std::vector<std::string> files;
     DIR *dirp;
@@ -27,21 +26,16 @@ std::vector<std::string> get_image_files(const std::string& dir_path) {
         }
     }
     closedir(dirp);
-    // Sort files alphabetically for consistent order
     std::sort(files.begin(), files.end());
     return files;
 }
 
-// ============================================================
-// Match struct and comparator
-// ============================================================
+// sort matches by distance (ascending)
 bool compareMatches(const Match& a, const Match& b) {
     return a.distance < b.distance;
 }
 
-// ============================================================
-// Task 1: Baseline Matching (7x7 center, SSD)
-// ============================================================
+// Task 1 - extracts 7x7 center patch as feature
 cv::Mat baseline_features(const std::string& image_path) {
     cv::Mat image = cv::imread(image_path);
     if (image.empty()) {
@@ -54,6 +48,7 @@ cv::Mat baseline_features(const std::string& image_path) {
     return image(roi).clone();
 }
 
+// sum of squared differences between two patches
 double ssd(const cv::Mat& f1, const cv::Mat& f2) {
     double sum = 0;
     for (int i = 0; i < f1.rows; ++i) {
@@ -67,9 +62,7 @@ double ssd(const cv::Mat& f1, const cv::Mat& f2) {
     return sum;
 }
 
-// ============================================================
-// Task 2: Histogram Matching (rg chromaticity)
-// ============================================================
+// Task 2 - rg chromaticity histogram (brightness invariant)
 cv::Mat rg_chromaticity_histogram(const cv::Mat& image, int bins) {
     cv::Mat histogram = cv::Mat::zeros(bins, bins, CV_32F);
 
@@ -97,9 +90,7 @@ cv::Mat rg_chromaticity_histogram(const cv::Mat& image, int bins) {
     return histogram;
 }
 
-// ============================================================
-// Task 3: Multi-histogram Matching (RGB histogram, top/bottom)
-// ============================================================
+// Task 3 - 3D RGB histogram
 cv::Mat rgb_histogram(const cv::Mat& image, int bins) {
     int histSize[] = {bins, bins, bins};
     cv::Mat histogram = cv::Mat::zeros(3, histSize, CV_32F);
@@ -118,9 +109,7 @@ cv::Mat rgb_histogram(const cv::Mat& image, int bins) {
     return histogram;
 }
 
-// ============================================================
-// Task 4: Texture and Color (Sobel magnitude histogram)
-// ============================================================
+// Task 4 - sobel gradient magnitude histogram for texture
 cv::Mat sobel_magnitude_histogram(const cv::Mat& image, int bins) {
     cv::Mat gray;
     cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
@@ -136,7 +125,7 @@ cv::Mat sobel_magnitude_histogram(const cv::Mat& image, int bins) {
     double max_val;
     cv::minMaxLoc(magnitude, nullptr, &max_val);
 
-    if (max_val == 0) max_val = 1; // avoid division by zero
+    if (max_val == 0) max_val = 1;
 
     for (int i = 0; i < magnitude.rows; ++i) {
         for (int j = 0; j < magnitude.cols; ++j) {
@@ -149,9 +138,7 @@ cv::Mat sobel_magnitude_histogram(const cv::Mat& image, int bins) {
     return histogram;
 }
 
-// ============================================================
-// Histogram Intersection distance (works for 1D, 2D, 3D)
-// ============================================================
+// histogram intersection - handles 1D, 2D, 3D histograms
 double histogram_intersection(const cv::Mat& h1, const cv::Mat& h2) {
     double intersection = 0;
     if (h1.dims == 2) {
@@ -176,9 +163,7 @@ double histogram_intersection(const cv::Mat& h1, const cv::Mat& h2) {
     return 1.0 - intersection;
 }
 
-// ============================================================
-// Task 5: Deep Network Embeddings (CSV reading + cosine distance)
-// ============================================================
+// Task 5 - reads ResNet18 embeddings from CSV file
 std::map<std::string, std::vector<float>> read_embeddings_csv(const std::string& csv_path) {
     std::map<std::string, std::vector<float>> embeddings;
     std::ifstream file(csv_path);
@@ -196,6 +181,7 @@ std::map<std::string, std::vector<float>> read_embeddings_csv(const std::string&
         std::string filename;
         std::getline(ss, filename, ',');
 
+        // strip whitespace from filename
         filename.erase(0, filename.find_first_not_of(" \t\r\n"));
         filename.erase(filename.find_last_not_of(" \t\r\n") + 1);
 
@@ -205,7 +191,7 @@ std::map<std::string, std::vector<float>> read_embeddings_csv(const std::string&
             try {
                 features.push_back(std::stof(value));
             } catch (...) {
-                // skip non-numeric values
+                // skip bad values
             }
         }
 
@@ -218,6 +204,7 @@ std::map<std::string, std::vector<float>> read_embeddings_csv(const std::string&
     return embeddings;
 }
 
+// d = 1 - cos(theta) between two vectors
 double cosine_distance(const std::vector<float>& v1, const std::vector<float>& v2) {
     if (v1.size() != v2.size() || v1.empty()) return 2.0;
 
@@ -237,6 +224,7 @@ double cosine_distance(const std::vector<float>& v1, const std::vector<float>& v
     return 1.0 - cosine_sim;
 }
 
+// SSD for embedding vectors
 double ssd_embedding(const std::vector<float>& v1, const std::vector<float>& v2) {
     if (v1.size() != v2.size()) return 1e18;
     double sum = 0;
@@ -247,6 +235,7 @@ double ssd_embedding(const std::vector<float>& v1, const std::vector<float>& v2)
     return sum;
 }
 
+// pulls just the filename from a full path
 std::string extract_filename(const std::string& path) {
     size_t pos = path.find_last_of("/\\");
     if (pos != std::string::npos) {
@@ -255,9 +244,7 @@ std::string extract_filename(const std::string& path) {
     return path;
 }
 
-// ============================================================
-// Task 7: Custom Design
-// ============================================================
+// Task 7 - 2D hue-saturation histogram
 cv::Mat hsv_histogram(const cv::Mat& image, int h_bins, int s_bins) {
     cv::Mat hsv;
     cv::cvtColor(image, hsv, cv::COLOR_BGR2HSV);
@@ -276,6 +263,7 @@ cv::Mat hsv_histogram(const cv::Mat& image, int h_bins, int s_bins) {
     return histogram;
 }
 
+// ratio of canny edge pixels to total pixels
 double compute_edge_density(const cv::Mat& image) {
     cv::Mat gray;
     cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
@@ -285,12 +273,14 @@ double compute_edge_density(const cv::Mat& image) {
     return (double)edge_pixels / (double)(edges.rows * edges.cols);
 }
 
+// HSV histogram for top third of image
 cv::Mat top_region_hsv_histogram(const cv::Mat& image, int h_bins, int s_bins) {
     int top_height = image.rows / 3;
     cv::Mat top_region = image(cv::Rect(0, 0, image.cols, top_height));
     return hsv_histogram(top_region, h_bins, s_bins);
 }
 
+// HSV histogram for bottom third of image
 cv::Mat bottom_region_hsv_histogram(const cv::Mat& image, int h_bins, int s_bins) {
     int top_height = image.rows / 3;
     int bottom_start = image.rows - top_height;
@@ -298,129 +288,143 @@ cv::Mat bottom_region_hsv_histogram(const cv::Mat& image, int h_bins, int s_bins
     return hsv_histogram(bottom_region, h_bins, s_bins);
 }
 
-// ============================================================
-// Extension: Banana Finder
-// ============================================================
+// scores how likely an image contains a banana (yellow + elongated shape)
 double banana_feature(const cv::Mat& image) {
     cv::Mat hsv_image;
     cv::cvtColor(image, hsv_image, cv::COLOR_BGR2HSV);
 
-    // Define range for yellow color in HSV (tuned for common banana yellow)
-    cv::Scalar lower_yellow = cv::Scalar(20, 100, 100);
-    cv::Scalar upper_yellow = cv::Scalar(35, 255, 255); // Slightly wider hue range for yellow
+    // yellow range - wide enough for ripe to slightly green bananas
+    cv::Scalar lower_yellow = cv::Scalar(15, 80, 80);
+    cv::Scalar upper_yellow = cv::Scalar(40, 255, 255);
 
     cv::Mat mask;
     cv::inRange(hsv_image, lower_yellow, upper_yellow, mask);
 
-    // Morphological operations to clean up the mask
+    // clean up noise
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
     cv::morphologyEx(mask, mask, cv::MORPH_OPEN, kernel);
     cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel);
 
+    // how much of the image is yellow overall
+    double total_yellow_pixels = cv::countNonZero(mask);
+    double total_pixels = image.rows * image.cols;
+    double yellow_percentage = (total_yellow_pixels / total_pixels) * 100.0;
+
     std::vector<std::vector<cv::Point>> contours;
     cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-    double max_banana_score = 0.0;
+    double best_elongation_score = 0.0;
 
-    if (!contours.empty()) {
-        std::sort(contours.begin(), contours.end(), [](const std::vector<cv::Point>& c1, const std::vector<cv::Point>& c2) {
-            return cv::contourArea(c1) > cv::contourArea(c2);
-        });
+    // check up to 5 biggest contours for banana-like shape
+    for (size_t i = 0; i < std::min(contours.size(), (size_t)5); ++i) {
+        double area = cv::contourArea(contours[i]);
+        if (area < 200) continue;
 
-        // Consider the largest contour
-        const auto& largest_contour = contours[0];
-        double area = cv::contourArea(largest_contour);
+        cv::RotatedRect minRect = cv::minAreaRect(contours[i]);
+        float w = minRect.size.width;
+        float h = minRect.size.height;
+        if (std::min(w, h) < 1) continue;
+        float aspect_ratio = std::max(w, h) / std::min(w, h);
 
-        if (area > 100) { // Only consider sufficiently large yellow regions
-            cv::RotatedRect minRect = cv::minAreaRect(largest_contour);
-            float width = minRect.size.width;
-            float height = minRect.size.height;
-            float aspect_ratio = std::max(width, height) / std::min(width, height);
+        // gaussian peaked at aspect ratio ~3 (typical banana shape)
+        double elongation = std::exp(-0.5 * std::pow((aspect_ratio - 3.0) / 1.5, 2));
 
-            // A banana is typically elongated, so high aspect ratio is good
-            // and a significant portion of the image should be yellow.
-            double yellow_percentage = (area / (image.rows * image.cols)) * 100.0;
+        // solidity check - bananas are roughly 0.6-0.8 (curved, not fully convex)
+        std::vector<cv::Point> hull;
+        cv::convexHull(contours[i], hull);
+        double hull_area = cv::contourArea(hull);
+        double solidity = (hull_area > 0) ? area / hull_area : 0;
+        double solidity_score = std::exp(-0.5 * std::pow((solidity - 0.7) / 0.15, 2));
 
-            // Combine area, aspect ratio, and yellow percentage into a score
-            // Tuned weights: aspect ratio is important, area also.
-            max_banana_score = (yellow_percentage * 0.5) + (aspect_ratio * 0.2) + (std::min(area / 5000.0, 100.0) * 0.3);
-            
-            // Cap score at 100 for normalization
-            max_banana_score = std::min(max_banana_score, 100.0);
-        }
+        double shape_score = 0.6 * elongation + 0.4 * solidity_score;
+        best_elongation_score = std::max(best_elongation_score, shape_score);
     }
-    return max_banana_score;
+
+    // combine color coverage and shape, both normalized to 0-1
+    double color_score = std::min(yellow_percentage / 10.0, 1.0);
+    double score = (0.5 * color_score + 0.5 * best_elongation_score) * 100.0;
+
+    return std::min(score, 100.0);
 }
 
-// ============================================================
-// Extension: Trash Can Finder
-// ============================================================
+// scores how likely an image contains a blue trash can
 double trash_can_feature(const cv::Mat& image) {
     cv::Mat hsv_image;
     cv::cvtColor(image, hsv_image, cv::COLOR_BGR2HSV);
 
-    // Define range for blue color in HSV (tuned for common blue trash cans)
-    cv::Scalar lower_blue = cv::Scalar(100, 150, 50); // Increased saturation and value for more vibrant blues
+    // blue range - low sat/val thresholds to catch bins in shadow
+    cv::Scalar lower_blue = cv::Scalar(95, 50, 40);
     cv::Scalar upper_blue = cv::Scalar(140, 255, 255);
 
     cv::Mat mask;
     cv::inRange(hsv_image, lower_blue, upper_blue, mask);
 
-    // Morphological operations to clean up the mask
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+    // clean up with rect kernel (better for boxy shapes)
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7));
     cv::morphologyEx(mask, mask, cv::MORPH_OPEN, kernel);
     cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel);
+
+    double total_blue_pixels = cv::countNonZero(mask);
+    double total_pixels = image.rows * image.cols;
+    double blue_percentage = (total_blue_pixels / total_pixels) * 100.0;
 
     std::vector<std::vector<cv::Point>> contours;
     cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-    double max_trashcan_score = 0.0;
+    double best_shape_score = 0.0;
 
-    if (!contours.empty()) {
-        std::sort(contours.begin(), contours.end(), [](const std::vector<cv::Point>& c1, const std::vector<cv::Point>& c2) {
-            return cv::contourArea(c1) > cv::contourArea(c2);
-        });
+    for (size_t i = 0; i < std::min(contours.size(), (size_t)5); ++i) {
+        double area = cv::contourArea(contours[i]);
+        if (area < 300) continue;
 
-        // Consider the largest contour
-        const auto& largest_contour = contours[0];
-        double area = cv::contourArea(largest_contour);
+        cv::RotatedRect minRect = cv::minAreaRect(contours[i]);
+        float w = minRect.size.width;
+        float h = minRect.size.height;
+        if (std::min(w, h) < 1) continue;
+        float aspect_ratio = std::max(w, h) / std::min(w, h);
 
-        if (area > 100) { // Only consider sufficiently large blue regions
-            cv::RotatedRect minRect = cv::minAreaRect(largest_contour);
-            float width = minRect.size.width;
-            float height = minRect.size.height;
-            float aspect_ratio = std::max(width, height) / std::min(width, height);
-            
-            // A trash can is often rectangular/boxy, so aspect ratio close to 1 is good,
-            // or a moderate aspect ratio if it's a tall bin.
-            // We want to penalize very high aspect ratios (very elongated)
-            double aspect_ratio_score = 1.0 / (1.0 + std::abs(aspect_ratio - 1.5)); // Penalize deviation from common trash can aspect ratio (e.g., 1.0 to 2.0)
+        // gaussian peaked at ~1.5 aspect ratio (upright bin shape)
+        double shape_score = std::exp(-0.5 * std::pow((aspect_ratio - 1.5) / 0.8, 2));
 
-            double blue_percentage = (area / (image.rows * image.cols)) * 100.0;
+        // how well the contour fills its bounding rect (bins are boxy)
+        double rect_area = w * h;
+        double rectangularity = (rect_area > 0) ? area / rect_area : 0;
+        double rect_score = std::min(rectangularity / 0.7, 1.0);
 
-            // Combine area, aspect ratio score, and blue percentage into a score
-            max_trashcan_score = (blue_percentage * 0.4) + (aspect_ratio_score * 30.0) + (std::min(area / 5000.0, 100.0) * 0.3);
-            
-            // Cap score at 100 for normalization
-            max_trashcan_score = std::min(max_trashcan_score, 100.0);
-        }
+        double combined = 0.5 * shape_score + 0.5 * rect_score;
+        best_shape_score = std::max(best_shape_score, combined);
     }
-    return max_trashcan_score;
+
+    // combine blue coverage and shape, both on 0-1 scale
+    double color_score = std::min(blue_percentage / 8.0, 1.0);
+    double score = (0.5 * color_score + 0.5 * best_shape_score) * 100.0;
+
+    return std::min(score, 100.0);
 }
 
-// ============================================================
-// Extension: Face Detector
-// ============================================================
+// counts faces using haar cascade - tries several paths for the xml
 int face_feature(const cv::Mat& image) {
     static cv::CascadeClassifier face_cascade;
     static bool cascade_loaded = false;
-    if (!cascade_loaded) {
-        std::string cascade_path = std::string(PROJECT_ROOT_DIR) + "/haarcascade_frontalface_default.xml";
-        if (face_cascade.load(cascade_path)) {
-            cascade_loaded = true;
-        } else {
-            std::cerr << "Warning: Could not load face cascade model from " << cascade_path << ". Face feature will not work." << std::endl;
-            return 0;
+    static bool load_attempted = false;
+    if (!cascade_loaded && !load_attempted) {
+        load_attempted = true;
+        std::vector<std::string> cascade_paths = {
+            std::string(PROJECT_ROOT_DIR) + "/haarcascade_frontalface_default.xml",
+            "/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml",
+            "/usr/local/share/opencv4/haarcascades/haarcascade_frontalface_default.xml",
+            "/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml",
+            "haarcascade_frontalface_default.xml"
+        };
+        for (const auto& path : cascade_paths) {
+            if (face_cascade.load(path)) {
+                cascade_loaded = true;
+                std::cout << "Face cascade loaded from: " << path << std::endl;
+                break;
+            }
+        }
+        if (!cascade_loaded) {
+            std::cerr << "Warning: Could not load face cascade from any known path." << std::endl;
         }
     }
 
@@ -433,13 +437,11 @@ int face_feature(const cv::Mat& image) {
     cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
     cv::equalizeHist(gray, gray);
 
-    face_cascade.detectMultiScale(gray, faces, 1.1, 2, 0 | cv::CASCADE_SCALE_IMAGE, cv::Size(30, 30));
-    return faces.size();
+    face_cascade.detectMultiScale(gray, faces, 1.1, 3, 0 | cv::CASCADE_SCALE_IMAGE, cv::Size(30, 30));
+    return (int)faces.size();
 }
 
-// ============================================================
-// Extension: Gabor Filter
-// ============================================================
+// gabor filter bank - 4 orientations x 2 frequencies, returns mean+stddev per filter
 std::vector<double> gabor_feature(const cv::Mat& image) {
     cv::Mat gray;
     cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
@@ -472,9 +474,7 @@ double euclidean_distance(const std::vector<double>& v1, const std::vector<doubl
     return std::sqrt(sum);
 }
 
-// ============================================================
-// Main Matching Function
-// ============================================================
+// dispatches to the right feature/distance combo for each task
 std::vector<Match> find_matches(const std::string& target_image_path,
                                 const std::string& task,
                                 int num_results,
@@ -484,8 +484,26 @@ std::vector<Match> find_matches(const std::string& target_image_path,
     std::vector<Match> matches;
 
     if (task == "dnn" || task == "custom_dnn") {
-        std::map<std::string, std::vector<float>> embeddings = read_embeddings_csv(csv_path);
-        if (embeddings.empty()) return matches;
+        // try csv path as-is, then fall back to project root
+        std::string resolved_csv = csv_path;
+        {
+            std::ifstream test(resolved_csv);
+            if (!test.is_open()) {
+                resolved_csv = std::string(PROJECT_ROOT_DIR) + "/" + csv_path;
+                std::ifstream test2(resolved_csv);
+                if (!test2.is_open()) {
+                    std::cerr << "Could not find CSV at: " << csv_path << " or " << resolved_csv << std::endl;
+                    return matches;
+                }
+            }
+        }
+
+        std::map<std::string, std::vector<float>> embeddings = read_embeddings_csv(resolved_csv);
+        if (embeddings.empty()) {
+            std::cerr << "No embeddings loaded from: " << resolved_csv << std::endl;
+            return matches;
+        }
+        std::cout << "Loaded " << embeddings.size() << " embeddings from " << resolved_csv << std::endl;
 
         std::string target_fname = extract_filename(target_image_path);
         std::vector<float> target_embedding;
@@ -493,7 +511,15 @@ std::vector<Match> find_matches(const std::string& target_image_path,
         if (embeddings.count(target_fname)) {
             target_embedding = embeddings[target_fname];
         } else {
-            std::cerr << "Target image embedding not found for: " << target_fname << " in " << csv_path << std::endl;
+            // print first few CSV keys so we can see what went wrong
+            std::cerr << "Target not found in CSV: '" << target_fname << "'" << std::endl;
+            std::cerr << "First 5 keys in CSV: ";
+            int count = 0;
+            for (const auto& p : embeddings) {
+                if (count++ >= 5) break;
+                std::cerr << "'" << p.first << "' ";
+            }
+            std::cerr << std::endl;
         }
         if (target_embedding.empty()) return matches;
 
@@ -501,26 +527,29 @@ std::vector<Match> find_matches(const std::string& target_image_path,
             std::string fname = extract_filename(pair.first);
             if (fname == target_fname) continue;
             double distance = (dnn_metric == "ssd") ? ssd_embedding(target_embedding, pair.second) : cosine_distance(target_embedding, pair.second);
-            // matches.push_back({pair.first, distance});
-            matches.push_back({image_database_path + "/" + extract_filename(pair.first), distance});
+            std::string full_path = image_database_path + "/" + fname;
+            matches.push_back({full_path, distance});
         }
     } else {
         std::vector<std::string> image_files = get_image_files(image_database_path);
         cv::Mat target_image = cv::imread(target_image_path);
         if (target_image.empty() && task != "banana" && task != "trashcan") return matches;
 
+        // pre-compute target features for face task so we don't redo it every iteration
         int target_face_feature = 0;
+        cv::Mat target_face_hsv;
         if (task == "face") {
             target_face_feature = face_feature(target_image);
+            target_face_hsv = hsv_histogram(target_image, 16, 16);
+            std::cout << "Target face count: " << target_face_feature << std::endl;
         }
-        
+
         std::vector<double> target_gabor_feature;
         if (task == "gabor") {
             target_gabor_feature = gabor_feature(target_image);
         }
 
         for (const auto& file_path : image_files) {
-            // if (file_path == target_image_path) continue;
             if (extract_filename(file_path) == extract_filename(target_image_path)) continue;
             cv::Mat current_image = cv::imread(file_path);
             if (current_image.empty()) continue;
@@ -598,7 +627,17 @@ std::vector<Match> find_matches(const std::string& target_image_path,
                 distance = 100.0 - current_trashcan_feature;
             } else if (task == "face") {
                 int current_face_feature = face_feature(current_image);
-                distance = std::abs(target_face_feature - current_face_feature);
+                double face_diff = std::abs(target_face_feature - current_face_feature);
+
+                // use color as tiebreaker so same-face-count images aren't random
+                cv::Mat current_hsv = hsv_histogram(current_image, 16, 16);
+                double color_dist = histogram_intersection(target_face_hsv, current_hsv);
+                distance = face_diff + 0.5 * color_dist;
+
+                // penalize no-face images when target has faces
+                if (target_face_feature > 0 && current_face_feature == 0) {
+                    distance += 10.0;
+                }
             } else if (task == "gabor") {
                 std::vector<double> current_gabor_feature = gabor_feature(current_image);
                 distance = euclidean_distance(target_gabor_feature, current_gabor_feature);
