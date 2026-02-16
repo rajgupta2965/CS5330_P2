@@ -501,7 +501,8 @@ std::vector<Match> find_matches(const std::string& target_image_path,
             std::string fname = extract_filename(pair.first);
             if (fname == target_fname) continue;
             double distance = (dnn_metric == "ssd") ? ssd_embedding(target_embedding, pair.second) : cosine_distance(target_embedding, pair.second);
-            matches.push_back({pair.first, distance});
+            // matches.push_back({pair.first, distance});
+            matches.push_back({image_database_path + "/" + extract_filename(pair.first), distance});
         }
     } else {
         std::vector<std::string> image_files = get_image_files(image_database_path);
@@ -519,7 +520,8 @@ std::vector<Match> find_matches(const std::string& target_image_path,
         }
 
         for (const auto& file_path : image_files) {
-            if (file_path == target_image_path) continue;
+            // if (file_path == target_image_path) continue;
+            if (extract_filename(file_path) == extract_filename(target_image_path)) continue;
             cv::Mat current_image = cv::imread(file_path);
             if (current_image.empty()) continue;
 
@@ -534,6 +536,16 @@ std::vector<Match> find_matches(const std::string& target_image_path,
                 int bins = 16;
                 cv::Mat target_hist = rg_chromaticity_histogram(target_image, bins);
                 cv::Mat current_hist = rg_chromaticity_histogram(current_image, bins);
+                distance = histogram_intersection(target_hist, current_hist);
+            } else if (task == "histogram2") {
+                int bins = 8;
+                cv::Mat target_hist = rgb_histogram(target_image, bins);
+                cv::Mat current_hist = rgb_histogram(current_image, bins);
+                distance = histogram_intersection(target_hist, current_hist);
+            } else if (task == "histogram3") {
+                int h_bins = 32, s_bins = 32;
+                cv::Mat target_hist = hsv_histogram(target_image, h_bins, s_bins);
+                cv::Mat current_hist = hsv_histogram(current_image, h_bins, s_bins);
                 distance = histogram_intersection(target_hist, current_hist);
             } else if (task == "multi-histogram") {
                 int bins = 8;

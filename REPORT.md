@@ -299,9 +299,9 @@ The distance metric weights color features at 70% (30% whole, 20% top, 20% botto
 The custom algorithm performs well for outdoor scenes where color composition, spatial layout, and texture are the defining characteristics. It achieved perfect results for the dumpster query (5/5 relevant) and good results for the metal grate query (3/5 strongly relevant). The least similar results are consistent and sensible across both targets. The method works best when the target image has a distinctive color and spatial structure, but may struggle with images where the key feature is a small object rather than the overall scene.  
 
 
-## Extensions
+# Extensions
 
-### Interactive GUI
+## Interactive GUI
 An interactive GUI was developed for the project as an extension. This GUI, built with the ImGui library, provides a user-friendly interface for the CBIR system.
 
 **Features:**
@@ -310,17 +310,39 @@ An interactive GUI was developed for the project as an extension. This GUI, buil
 *   **Visual Feedback**: The selected target image and the corresponding matched images are displayed visually in the application window, along with their calculated distances.
 *   **Real-time Interaction**: The interface includes an "Execute Search" button to run queries on demand and a "Close" button to exit the application.
 
-![GUI Screenshot](GUI_Screenshot.png) 
-*(Note to user: Please take a screenshot of the running GUI and save it as `GUI_Screenshot.png` in the project root for this image to be displayed.)*
+<img src="gui/gui1.png" width="500"> <img src="gui/gui2.png" width="500"> <img src="gui/gui3.png" width="500"> <img src="gui/gui4.png" width="500"> <img src="gui/gui5.png" width="500"> <img src="gui/gui6.png" width="500">
 
-### Additional Matching Methods
-Several new feature matching methods were added as extensions:
 
-*   **Banana Finder**: A simple color-based detector that ranks images by the percentage of yellow pixels they contain. This is effective for finding images with prominent yellow objects.
-*   **Blue Trash Can Finder**: Similar to the banana finder, this method ranks images by the percentage of a specific shade of blue, designed to find the blue trash cans present in the dataset.
-*   **Face Detector**: This method uses an OpenCV Haar Cascade classifier to detect faces in images. It ranks images based on the number of faces detected compared to the target image.
-*   **Gabor Filter (Texture)**: This method uses a bank of Gabor filters with different orientations and frequencies to create a feature vector describing the texture of an image. It is effective for retrieving images with similar textural patterns.
-*   **Custom DNN (ResNet18)**: This extension uses a utility program (`generate_embeddings`) to process the entire image database through a local ONNX ResNet18 model, creating a new `Custom_ResNet18_olym.csv` file. The GUI can then use this custom-generated set of embeddings for matching, allowing for direct comparison with other pre-computed feature sets.
+## #Additional Matching Methods
+Several new feature matching methods were added as extensions:  
+
+## Banana Finder: 
+A simple color-based detector that ranks images by the percentage of yellow pixels they contain. This is effective for finding images with prominent yellow objects.  
+
+## Blue Trash Can Finder: 
+Similar to the banana finder, this method ranks images by the percentage of a specific shade of blue, designed to find the blue trash cans present in the dataset.  
+
+## Face Detector: 
+This method uses an OpenCV Haar Cascade classifier to detect faces in images. It ranks images based on the number of faces detected compared to the target image.  
+
+
+## Gabor Filter (Texture): 
+This method uses a bank of Gabor filters with different orientations and frequencies to create a feature vector describing the texture of an image. It is effective for retrieving images with similar textural patterns.  
+
+**Target Image:** `olympus/pic.0890.jpg`  
+
+![pic.0890.jpg](olympus/pic.0890.jpg)
+
+**Matches:** `olympus/pic.0703.jpg`, `olympus/pic.0446.jpg`, `olympus/pic.0908.jpg`, `olympus/pic.0977.jpg`
+
+<img src="olympus/pic.0703.jpg" width="300"> <img src="olympus/pic.0446.jpg" width="300"> <img src="olympus/pic.0908.jpg" width="300"> <img src="olympus/pic.0977.jpg" width="300"> <img src="gui/gabor.png" width="300">
+
+
+## Custom DNN (ResNet18): 
+This extension uses a utility program (`generate_embeddings`) to process the entire image database through a local ONNX ResNet18 model, creating a new `Custom_ResNet18_olym.csv` file. The GUI can then use this custom-generated set of embeddings for matching, allowing for direct comparison with other pre-computed feature sets.  
+
+### DNN VS Custom DNN (Resnet)
+<img src="gui/dnn.png" width="500"> <img src="gui/dnn_resnet.png" width="500">
 
 ## Time Travel Days
 3 days used.

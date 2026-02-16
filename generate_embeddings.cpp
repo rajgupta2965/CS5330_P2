@@ -4,7 +4,7 @@
 #include <string>
 #include "opencv2/opencv.hpp"
 #include "opencv2/dnn.hpp"
-#include "cbir.h" // For get_image_files
+#include "cbir.h"
 
 int getEmbedding(cv::Mat &src, cv::Mat &embedding, cv::dnn::Net &net) {
     const int ORNet_size = 224;
@@ -13,7 +13,7 @@ int getEmbedding(cv::Mat &src, cv::Mat &embedding, cv::dnn::Net &net) {
     cv::dnn::blobFromImage(src, blob, (1.0/255.0) * (1/0.226), cv::Size(ORNet_size, ORNet_size), cv::Scalar(124, 116, 104), true, false, CV_32F);
     
     net.setInput(blob);
-    embedding = net.forward(); // Use default forward for ResNet18
+    embedding = net.forward();
     return 0;
 }
 
