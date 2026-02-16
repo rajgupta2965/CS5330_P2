@@ -52,8 +52,8 @@ int main(int, char**) {
     std::vector<Match> matches;
     std::vector<GLuint> match_textures;
     
-    const char* tasks[] = { "Baseline", "Histogram (Color)", "Multi-Histogram", "Texture & Color", "Deep Network (DNN)", "Custom DNN (ResNet18)", "Custom Design", "Banana Finder", "Blue Trash Can Finder", "Face Detector", "Gabor Filter (Texture)" };
-    const char* task_keys[] = { "baseline", "histogram", "multi-histogram", "texture-color", "dnn", "custom_dnn", "custom", "banana", "trashcan", "face", "gabor" };
+    const char* tasks[] = { "Baseline", "Histogram (Color)", "Multi-Histogram", "Texture & Color", "Deep Network (DNN)", "Custom DNN (ResNet18)", "Custom Design", "Blue Trash Can Finder", "Face Detector", "Gabor Filter (Texture)" };
+    const char* task_keys[] = { "baseline", "histogram", "multi-histogram", "texture-color", "dnn", "custom_dnn", "custom", "trashcan", "face", "gabor" };
     static int current_task = 0;
 
     const char* results_options[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" };

@@ -32,7 +32,7 @@ cv::Mat hsv_histogram(const cv::Mat& image, int h_bins, int s_bins);
 cv::Mat top_region_hsv_histogram(const cv::Mat& image, int h_bins, int s_bins);
 cv::Mat bottom_region_hsv_histogram(const cv::Mat& image, int h_bins, int s_bins);
 double compute_edge_density(const cv::Mat& image);
-double banana_feature(const cv::Mat& image);
+
 double trash_can_feature(const cv::Mat& image);
 int face_feature(const cv::Mat& image);
 std::vector<double> gabor_feature(const cv::Mat& image);

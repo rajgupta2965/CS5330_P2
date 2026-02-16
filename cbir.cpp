@@ -288,94 +288,58 @@ cv::Mat bottom_region_hsv_histogram(const cv::Mat& image, int h_bins, int s_bins
     return hsv_histogram(bottom_region, h_bins, s_bins);
 }
 
-// scores how likely an image contains a banana (yellow + elongated shape)
-double banana_feature(const cv::Mat& image) {
-    cv::Mat hsv_image;
-    cv::cvtColor(image, hsv_image, cv::COLOR_BGR2HSV);
 
-    // yellow range - wide enough for ripe to slightly green bananas
-    cv::Scalar lower_yellow = cv::Scalar(15, 80, 80);
-    cv::Scalar upper_yellow = cv::Scalar(40, 255, 255);
-
-    cv::Mat mask;
-    cv::inRange(hsv_image, lower_yellow, upper_yellow, mask);
-
-    // clean up noise
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
-    cv::morphologyEx(mask, mask, cv::MORPH_OPEN, kernel);
-    cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel);
-
-    // how much of the image is yellow overall
-    double total_yellow_pixels = cv::countNonZero(mask);
-    double total_pixels = image.rows * image.cols;
-    double yellow_percentage = (total_yellow_pixels / total_pixels) * 100.0;
-
-    std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-
-    double best_elongation_score = 0.0;
-
-    // check up to 5 biggest contours for banana-like shape
-    for (size_t i = 0; i < std::min(contours.size(), (size_t)5); ++i) {
-        double area = cv::contourArea(contours[i]);
-        if (area < 200) continue;
-
-        cv::RotatedRect minRect = cv::minAreaRect(contours[i]);
-        float w = minRect.size.width;
-        float h = minRect.size.height;
-        if (std::min(w, h) < 1) continue;
-        float aspect_ratio = std::max(w, h) / std::min(w, h);
-
-        // gaussian peaked at aspect ratio ~3 (typical banana shape)
-        double elongation = std::exp(-0.5 * std::pow((aspect_ratio - 3.0) / 1.5, 2));
-
-        // solidity check - bananas are roughly 0.6-0.8 (curved, not fully convex)
-        std::vector<cv::Point> hull;
-        cv::convexHull(contours[i], hull);
-        double hull_area = cv::contourArea(hull);
-        double solidity = (hull_area > 0) ? area / hull_area : 0;
-        double solidity_score = std::exp(-0.5 * std::pow((solidity - 0.7) / 0.15, 2));
-
-        double shape_score = 0.6 * elongation + 0.4 * solidity_score;
-        best_elongation_score = std::max(best_elongation_score, shape_score);
-    }
-
-    // combine color coverage and shape, both normalized to 0-1
-    double color_score = std::min(yellow_percentage / 10.0, 1.0);
-    double score = (0.5 * color_score + 0.5 * best_elongation_score) * 100.0;
-
-    return std::min(score, 100.0);
-}
 
 // scores how likely an image contains a blue trash can
 double trash_can_feature(const cv::Mat& image) {
     cv::Mat hsv_image;
     cv::cvtColor(image, hsv_image, cv::COLOR_BGR2HSV);
-
-    // blue range - low sat/val thresholds to catch bins in shadow
-    cv::Scalar lower_blue = cv::Scalar(95, 50, 40);
-    cv::Scalar upper_blue = cv::Scalar(140, 255, 255);
-
-    cv::Mat mask;
-    cv::inRange(hsv_image, lower_blue, upper_blue, mask);
-
-    // clean up with rect kernel (better for boxy shapes)
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7));
-    cv::morphologyEx(mask, mask, cv::MORPH_OPEN, kernel);
-    cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel);
-
-    double total_blue_pixels = cv::countNonZero(mask);
     double total_pixels = image.rows * image.cols;
-    double blue_percentage = (total_blue_pixels / total_pixels) * 100.0;
+
+    // strict mask - catches well-lit bins, rejects sky/jeans/fabric
+    cv::Mat strict_mask;
+    cv::inRange(hsv_image, cv::Scalar(100, 100, 50), cv::Scalar(130, 255, 255), strict_mask);
+
+    // soft mask for dark/night bins - lower sat/val, but only bottom 75% of image
+    cv::Mat soft_mask;
+    cv::inRange(hsv_image, cv::Scalar(100, 50, 25), cv::Scalar(130, 255, 255), soft_mask);
+    soft_mask(cv::Rect(0, 0, image.cols, image.rows / 4)) = 0;
+
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
+
+    // try strict first, fall back to soft only if strict finds almost nothing
+    cv::morphologyEx(strict_mask, strict_mask, cv::MORPH_OPEN, kernel);
+    cv::morphologyEx(strict_mask, strict_mask, cv::MORPH_CLOSE, kernel);
+    cv::morphologyEx(soft_mask, soft_mask, cv::MORPH_OPEN, kernel);
+    cv::morphologyEx(soft_mask, soft_mask, cv::MORPH_CLOSE, kernel);
+
+    double strict_pct = cv::countNonZero(strict_mask) / total_pixels * 100.0;
+    double soft_pct = cv::countNonZero(soft_mask) / total_pixels * 100.0;
+
+    // use strict mask normally; only use soft if strict has <1.5% and soft has significantly more
+    cv::Mat mask = strict_mask;
+    bool is_soft = false;
+    if (strict_pct < 1.5 && soft_pct > strict_pct * 2.0 && soft_pct >= 1.5) {
+        mask = soft_mask;
+        is_soft = true;
+    }
+
+    double blue_percentage = cv::countNonZero(mask) / total_pixels * 100.0;
+    if (blue_percentage < 1.5) return 0.0;
 
     std::vector<std::vector<cv::Point>> contours;
     cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-    double best_shape_score = 0.0;
+    std::sort(contours.begin(), contours.end(), [](const std::vector<cv::Point>& a, const std::vector<cv::Point>& b) {
+        return cv::contourArea(a) > cv::contourArea(b);
+    });
 
-    for (size_t i = 0; i < std::min(contours.size(), (size_t)5); ++i) {
+    double best_score = 0.0;
+
+    for (size_t i = 0; i < std::min(contours.size(), (size_t)3); ++i) {
         double area = cv::contourArea(contours[i]);
-        if (area < 300) continue;
+        double area_fraction = area / total_pixels;
+        if (area_fraction < 0.015) continue;
 
         cv::RotatedRect minRect = cv::minAreaRect(contours[i]);
         float w = minRect.size.width;
@@ -383,21 +347,37 @@ double trash_can_feature(const cv::Mat& image) {
         if (std::min(w, h) < 1) continue;
         float aspect_ratio = std::max(w, h) / std::min(w, h);
 
-        // gaussian peaked at ~1.5 aspect ratio (upright bin shape)
-        double shape_score = std::exp(-0.5 * std::pow((aspect_ratio - 1.5) / 0.8, 2));
+        double perimeter = cv::arcLength(contours[i], true);
+        double compactness = (perimeter > 0) ? (4.0 * CV_PI * area) / (perimeter * perimeter) : 0;
 
-        // how well the contour fills its bounding rect (bins are boxy)
-        double rect_area = w * h;
-        double rectangularity = (rect_area > 0) ? area / rect_area : 0;
-        double rect_score = std::min(rectangularity / 0.7, 1.0);
+        // reject sky bands and thin strips
+        cv::Rect bbox = cv::boundingRect(contours[i]);
+        if ((double)bbox.width / image.cols > 0.70) continue;
+        if (aspect_ratio > 4.0) continue;
 
-        double combined = 0.5 * shape_score + 0.5 * rect_score;
-        best_shape_score = std::max(best_shape_score, combined);
+        double compact_score = (compactness > 0.3) ? std::min(compactness / 0.7, 1.0) : 0.0;
+
+        double rect_area = (double)w * h;
+        double fill_ratio = (rect_area > 0) ? area / rect_area : 0;
+        double fill_score = std::min(fill_ratio / 0.65, 1.0);
+
+        double ar_score = (aspect_ratio >= 1.0 && aspect_ratio <= 2.5) ? 1.0 :
+                          std::max(0.0, 1.0 - (aspect_ratio - 2.5) * 0.3);
+
+        double size_score = std::min(area_fraction / 0.08, 1.0);
+
+        double combined = 0.30 * compact_score + 0.25 * fill_score + 0.20 * ar_score + 0.25 * size_score;
+
+        // penalize soft mask results slightly since they're less reliable
+        if (is_soft) combined *= 0.80;
+
+        best_score = std::max(best_score, combined);
     }
 
-    // combine blue coverage and shape, both on 0-1 scale
-    double color_score = std::min(blue_percentage / 8.0, 1.0);
-    double score = (0.5 * color_score + 0.5 * best_shape_score) * 100.0;
+    if (best_score == 0.0) return 0.0;
+
+    double color_score = std::min(blue_percentage / 20.0, 1.0);
+    double score = (0.35 * color_score + 0.65 * best_score) * 100.0;
 
     return std::min(score, 100.0);
 }
@@ -619,9 +599,7 @@ std::vector<Match> find_matches(const std::string& target_image_path,
                 double texture_dist = histogram_intersection(target_texture, curr_texture);
 
                 distance = 0.30 * whole_hsv_dist + 0.20 * top_hsv_dist + 0.20 * bottom_hsv_dist + 0.15 * texture_dist + 0.15 * edge_dist;
-            } else if (task == "banana") {
-                double current_banana_feature = banana_feature(current_image);
-                distance = 100.0 - current_banana_feature;
+
             } else if (task == "trashcan") {
                 double current_trashcan_feature = trash_can_feature(current_image);
                 distance = 100.0 - current_trashcan_feature;
