@@ -210,7 +210,7 @@ std::map<std::string, std::vector<float>> read_embeddings_csv(const std::string&
         }
 
         if (!features.empty()) {
-            embeddings[filename] = features;
+            embeddings[extract_filename(filename)] = features;
         }
     }
 
@@ -305,17 +305,51 @@ double banana_feature(const cv::Mat& image) {
     cv::Mat hsv_image;
     cv::cvtColor(image, hsv_image, cv::COLOR_BGR2HSV);
 
-    // Define range for yellow color in HSV
+    // Define range for yellow color in HSV (tuned for common banana yellow)
     cv::Scalar lower_yellow = cv::Scalar(20, 100, 100);
-    cv::Scalar upper_yellow = cv::Scalar(30, 255, 255);
+    cv::Scalar upper_yellow = cv::Scalar(35, 255, 255); // Slightly wider hue range for yellow
 
     cv::Mat mask;
     cv::inRange(hsv_image, lower_yellow, upper_yellow, mask);
 
-    int yellow_pixels = cv::countNonZero(mask);
-    int total_pixels = image.rows * image.cols;
+    // Morphological operations to clean up the mask
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+    cv::morphologyEx(mask, mask, cv::MORPH_OPEN, kernel);
+    cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel);
 
-    return (total_pixels > 0) ? ((double)yellow_pixels / total_pixels) * 100.0 : 0.0;
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    double max_banana_score = 0.0;
+
+    if (!contours.empty()) {
+        std::sort(contours.begin(), contours.end(), [](const std::vector<cv::Point>& c1, const std::vector<cv::Point>& c2) {
+            return cv::contourArea(c1) > cv::contourArea(c2);
+        });
+
+        // Consider the largest contour
+        const auto& largest_contour = contours[0];
+        double area = cv::contourArea(largest_contour);
+
+        if (area > 100) { // Only consider sufficiently large yellow regions
+            cv::RotatedRect minRect = cv::minAreaRect(largest_contour);
+            float width = minRect.size.width;
+            float height = minRect.size.height;
+            float aspect_ratio = std::max(width, height) / std::min(width, height);
+
+            // A banana is typically elongated, so high aspect ratio is good
+            // and a significant portion of the image should be yellow.
+            double yellow_percentage = (area / (image.rows * image.cols)) * 100.0;
+
+            // Combine area, aspect ratio, and yellow percentage into a score
+            // Tuned weights: aspect ratio is important, area also.
+            max_banana_score = (yellow_percentage * 0.5) + (aspect_ratio * 0.2) + (std::min(area / 5000.0, 100.0) * 0.3);
+            
+            // Cap score at 100 for normalization
+            max_banana_score = std::min(max_banana_score, 100.0);
+        }
+    }
+    return max_banana_score;
 }
 
 // ============================================================
@@ -325,17 +359,53 @@ double trash_can_feature(const cv::Mat& image) {
     cv::Mat hsv_image;
     cv::cvtColor(image, hsv_image, cv::COLOR_BGR2HSV);
 
-    // Define range for blue color in HSV
-    cv::Scalar lower_blue = cv::Scalar(100, 100, 100);
+    // Define range for blue color in HSV (tuned for common blue trash cans)
+    cv::Scalar lower_blue = cv::Scalar(100, 150, 50); // Increased saturation and value for more vibrant blues
     cv::Scalar upper_blue = cv::Scalar(140, 255, 255);
 
     cv::Mat mask;
     cv::inRange(hsv_image, lower_blue, upper_blue, mask);
 
-    int blue_pixels = cv::countNonZero(mask);
-    int total_pixels = image.rows * image.cols;
+    // Morphological operations to clean up the mask
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+    cv::morphologyEx(mask, mask, cv::MORPH_OPEN, kernel);
+    cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel);
 
-    return (total_pixels > 0) ? ((double)blue_pixels / total_pixels) * 100.0 : 0.0;
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    double max_trashcan_score = 0.0;
+
+    if (!contours.empty()) {
+        std::sort(contours.begin(), contours.end(), [](const std::vector<cv::Point>& c1, const std::vector<cv::Point>& c2) {
+            return cv::contourArea(c1) > cv::contourArea(c2);
+        });
+
+        // Consider the largest contour
+        const auto& largest_contour = contours[0];
+        double area = cv::contourArea(largest_contour);
+
+        if (area > 100) { // Only consider sufficiently large blue regions
+            cv::RotatedRect minRect = cv::minAreaRect(largest_contour);
+            float width = minRect.size.width;
+            float height = minRect.size.height;
+            float aspect_ratio = std::max(width, height) / std::min(width, height);
+            
+            // A trash can is often rectangular/boxy, so aspect ratio close to 1 is good,
+            // or a moderate aspect ratio if it's a tall bin.
+            // We want to penalize very high aspect ratios (very elongated)
+            double aspect_ratio_score = 1.0 / (1.0 + std::abs(aspect_ratio - 1.5)); // Penalize deviation from common trash can aspect ratio (e.g., 1.0 to 2.0)
+
+            double blue_percentage = (area / (image.rows * image.cols)) * 100.0;
+
+            // Combine area, aspect ratio score, and blue percentage into a score
+            max_trashcan_score = (blue_percentage * 0.4) + (aspect_ratio_score * 30.0) + (std::min(area / 5000.0, 100.0) * 0.3);
+            
+            // Cap score at 100 for normalization
+            max_trashcan_score = std::min(max_trashcan_score, 100.0);
+        }
+    }
+    return max_trashcan_score;
 }
 
 // ============================================================
@@ -345,10 +415,11 @@ int face_feature(const cv::Mat& image) {
     static cv::CascadeClassifier face_cascade;
     static bool cascade_loaded = false;
     if (!cascade_loaded) {
-        if (face_cascade.load("haarcascade_frontalface_default.xml")) {
+        std::string cascade_path = std::string(PROJECT_ROOT_DIR) + "/haarcascade_frontalface_default.xml";
+        if (face_cascade.load(cascade_path)) {
             cascade_loaded = true;
         } else {
-            std::cerr << "Warning: Could not load face cascade model. Face feature will not work." << std::endl;
+            std::cerr << "Warning: Could not load face cascade model from " << cascade_path << ". Face feature will not work." << std::endl;
             return 0;
         }
     }
@@ -421,15 +492,8 @@ std::vector<Match> find_matches(const std::string& target_image_path,
 
         if (embeddings.count(target_fname)) {
             target_embedding = embeddings[target_fname];
-        } else if (embeddings.count(target_image_path)) {
-            target_embedding = embeddings[target_image_path];
         } else {
-            for (const auto& pair : embeddings) {
-                if (extract_filename(pair.first) == target_fname) {
-                    target_embedding = pair.second;
-                    break;
-                }
-            }
+            std::cerr << "Target image embedding not found for: " << target_fname << " in " << csv_path << std::endl;
         }
         if (target_embedding.empty()) return matches;
 
