@@ -6,7 +6,6 @@
 #include "cbir.h"
 #include "ImGuiFileDialog.h"
 
-// Helper function to convert cv::Mat to an OpenGL texture
 void matToTexture(const cv::Mat& mat, GLuint& textureID) {
     if (mat.empty()) return;
     if (textureID == 0) glGenTextures(1, &textureID);
@@ -31,10 +30,10 @@ int main(int, char**) {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "CBIR GUI", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(800, 600, "CBIR GUI", NULL, NULL);
     if (window == NULL) return 1;
     glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // Enable vsync
+    glfwSwapInterval(1);
 
     // Setup ImGui context
     IMGUI_CHECKVERSION();
@@ -53,7 +52,7 @@ int main(int, char**) {
     std::vector<Match> matches;
     std::vector<GLuint> match_textures;
     
-    const char* tasks[] = { "Baseline", "Histogram (Color)", "Multi-Histogram", "Texture & Color", "Deep Network (DNN)", "Custom DNN (ResNet18)", "Custom (Sunset)", "Banana Finder", "Blue Trash Can Finder", "Face Detector", "Gabor Filter (Texture)" };
+    const char* tasks[] = { "Baseline", "Histogram (Color)", "Multi-Histogram", "Texture & Color", "Deep Network (DNN)", "Custom DNN (ResNet18)", "Custom Design", "Banana Finder", "Blue Trash Can Finder", "Face Detector", "Gabor Filter (Texture)" };
     const char* task_keys[] = { "baseline", "histogram", "multi-histogram", "texture-color", "dnn", "custom_dnn", "custom", "banana", "trashcan", "face", "gabor" };
     static int current_task = 0;
 
@@ -69,6 +68,8 @@ int main(int, char**) {
         ImGui::NewFrame();
 
         // Main GUI Window
+        ImGui::SetNextWindowSize(ImVec2(800, 600));
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
         ImGui::Begin("Content-Based Image Retrieval");
 
         // File Dialog
@@ -106,7 +107,7 @@ int main(int, char**) {
         if (ImGui::Button("Execute Search")) {
             if (!target_image_path.empty()) {
                 std::string task = task_keys[current_task];
-                std::string csv_path = "ResNet18_olym.csv"; // Default
+                std::string csv_path = "ResNet18_olym.csv";
                 if (task == "custom_dnn") {
                     csv_path = "Custom_ResNet18_olym.csv";
                 }
