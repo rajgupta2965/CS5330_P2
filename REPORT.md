@@ -1,6 +1,8 @@
 # Project 2 Report: Content-Based Image Retrieval
 
-**Note on Format:** This report is written in Markdown and includes local image references. To generate the final PDF for submission, please use a Markdown to PDF converter (like Pandoc or the one in your IDE) that can resolve local image paths.
+## Team Members
+- **Sangeeth Deleep Menon** | NUID: 002524579 | MSCS - Boston | CS5330 Section 03 (CRN: 40669, Online)
+- **Raj Gupta** | NUID: 002068701 | MSCS - Boston | CS5330 Section 01 (CRN: 38745, Online)
 
 ## Project Description
 
@@ -301,7 +303,7 @@ The custom algorithm performs well for outdoor scenes where color composition, s
 
 # Extensions
 
-## Interactive GUI
+## 1. Interactive GUI
 An interactive GUI was developed for the project as an extension. This GUI, built with the ImGui library, provides a user-friendly interface for the CBIR system.
 
 **Features:**
@@ -312,21 +314,43 @@ An interactive GUI was developed for the project as an extension. This GUI, buil
 
 <img src="gui/gui1.png" width="500"> <img src="gui/gui2.png" width="500"> <img src="gui/gui3.png" width="500"> <img src="gui/gui4.png" width="500"> <img src="gui/gui5.png" width="500"> <img src="gui/gui6.png" width="500">
 
-
 ## #Additional Matching Methods
-Several new feature matching methods were added as extensions:  
+Several new feature matching methods were added as extensions:
 
-## Banana Finder: 
+## 2. Blue Trash Can Finder
+This method ranks images by the percentage of a specific shade of blue, designed to find the blue trash cans present in the dataset.  
+
+**Target Image:** `olympus/pic.0287.jpg`
+
+![pic.0287.jpg](olympus/pic.0287.jpg)
+
+**Matches:** `olympus/pic.0291.jpg`, `olympus/pic.0289.jpg`, `olympus/pic.0591.jpg`, `olympus/pic.0766.jpg`, `olympus/pic.0288.jpg`.
+
+<img src="olympus/pic.0291.jpg" width="300"> <img src="olympus/pic.0289.jpg" width="300"> <img src="olympus/pic.0591.jpg" width="300"> <img src="olympus/pic.0766.jpg" width="300"><img src="olympus/pic.0288.jpg" width="300"> <img src="gui/trash.png" width="300">
+
+## 3. Banana Finder 
 A simple color-based detector that ranks images by the percentage of yellow pixels they contain. This is effective for finding images with prominent yellow objects.  
 
-## Blue Trash Can Finder: 
-Similar to the banana finder, this method ranks images by the percentage of a specific shade of blue, designed to find the blue trash cans present in the dataset.  
+**Target Image:** `olympus/pic.0343.jpg`
 
-## Face Detector: 
+![pic.0343.jpg](olympus/pic.0343.jpg)
+
+**Matches:** `olympus/pic.0345.jpg`, `olympus/pic.0772.jpg`.
+
+<img src="olympus/pic.0345.jpg" width="300"> <img src="olympus/pic.0772.jpg" width="300"> <img src="gui/banana.png" width="300">
+
+## 4. Face Detector
 This method uses an OpenCV Haar Cascade classifier to detect faces in images. It ranks images based on the number of faces detected compared to the target image.  
 
+**Target Image:** `olympus/pic.0395.jpg`  
 
-## Gabor Filter (Texture): 
+![pic.0395.jpg](olympus/pic.0395.jpg)
+
+**Matches:** `olympus/pic.0348.jpg`, `olympus/pic.0397.jpg`  
+
+<img src="olympus/pic.0348.jpg" width="300"> <img src="olympus/pic.0397.jpg" width="300"> <img src="gui/face1.png" width="300">
+
+## 5. Gabor Filter (Texture)
 This method uses a bank of Gabor filters with different orientations and frequencies to create a feature vector describing the texture of an image. It is effective for retrieving images with similar textural patterns.  
 
 **Target Image:** `olympus/pic.0890.jpg`  
@@ -337,21 +361,20 @@ This method uses a bank of Gabor filters with different orientations and frequen
 
 <img src="olympus/pic.0703.jpg" width="300"> <img src="olympus/pic.0446.jpg" width="300"> <img src="olympus/pic.0908.jpg" width="300"> <img src="olympus/pic.0977.jpg" width="300"> <img src="gui/gabor.png" width="300">
 
-
-## Custom DNN (ResNet18): 
-This extension uses a utility program (`generate_embeddings`) to process the entire image database through a local ONNX ResNet18 model, creating a new `Custom_ResNet18_olym.csv` file. The GUI can then use this custom-generated set of embeddings for matching, allowing for direct comparison with other pre-computed feature sets.  
-
+## 6. Custom DNN (ResNet18)
+This extension uses a utility program (`generate_embeddings`) to process the entire image database through a local ONNX ResNet18 model, creating a new `Custom_ResNet18_olym.csv` file. The GUI can then use this custom-generated set of embeddings for matching, allowing for direct comparison with other pre-computed feature sets.
 ### DNN VS Custom DNN (Resnet)
 <img src="gui/dnn.png" width="500"> <img src="gui/dnn_resnet.png" width="500">
 
-## Time Travel Days
-3 days used.
+## Submission Time
+Within Late deadline. We have worked very hard and implemented every extension. Kindly grade it.  
+Raj is registered with DAS and has DAS accommodations. He is having a very tough time, yet he contributed equally whenever he could.
 
 ## Reflection
 
 This project served as a practical exploration of various content-based image retrieval techniques. Implementing classic methods like baseline pixel matching and color histograms highlighted the trade-offs between computational simplicity and descriptive power. The introduction of texture and spatial information in later tasks demonstrated a clear improvement in retrieval accuracy for certain image types.
 
-The most significant learning came from integrating and comparing these classic methods with deep learning embeddings. The ResNet18 features often provided more semantically meaningful matches, capturing abstract similarities that pixel- and color-based methods could not. This emphasized the power of pre-trained deep networks as robust, general-purpose feature extractors.
+The most significant learning came from integrating and comparing these classic methods with deep learning embeddings. The DNN and DNN (ResNet18) features often provided more semantically meaningful matches, capturing abstract similarities that pixel and color-based methods could not. This emphasized the power of pre-trained deep networks as robust, general-purpose feature extractors.
 
 The process of building, debugging, and verifying the C++ application provided valuable software engineering experience, particularly in managing dependencies like OpenCV and handling file I/O for the image database and CSV embeddings.
 

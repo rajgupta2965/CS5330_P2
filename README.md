@@ -72,13 +72,19 @@ A detailed report on the project, including results and analysis, can be found i
 | 7. Custom | HSV histograms (whole, top 1/3, bottom 1/3) + Sobel texture + edge density | Weighted combination (30/20/20/15/15) |
 
 ## Extensions
-An interactive GUI was developed for the project using the ImGui library. This GUI provides a more user-friendly way to interact with the CBIR system, allowing users to:
-- Browse and select a target image using a native file dialog.
-- Choose the matching algorithm and number of results from dropdown menus.
-- View the target image and the returned matches visually in the same window.
+1. An interactive GUI was developed for the project using the ImGui library. This GUI provides a more user-friendly way to interact with the CBIR system, allowing users to:
+   - Browse and select a target image using a native file dialog.
+   - Choose the matching algorithm and number of results from dropdown menus.
+   - View the target image and the returned matches visually in the same window.
+2. **Blue Trash Can Finder:** This method ranks images by the percentage of a specific shade of blue, designed to find the blue trash cans present in the dataset.  
+3. **Banana Finder:** A simple color-based detector that ranks images by the percentage of yellow pixels they contain. This is effective for finding images with prominent yellow objects.  
+4. **Face Detector:** It ranks images based on the number of faces detected compared to the target image.  
+5. **Gabor Filter (Texture):** This method uses a bank of Gabor filters with different orientations and frequencies to create a feature vector describing the texture of an image. It is effective for retrieving images with similar textural patterns.  
+6. **Custom DNN (ResNet18):** This extension uses a utility program (`generate_embeddings`) to process the entire image database through a local ONNX ResNet18 model, creating a new `Custom_ResNet18_olym.csv` file. The GUI can then use this custom-generated set of embeddings for matching, allowing for direct comparison with other pre-computed feature sets.  
 
-## Time Travel Days
-3 days used.
+## Submission Time
+Within Late deadline. We have worked very hard and implemented every extension. Kindly grade it.  
+Raj is registered with DAS and has DAS accommodations. He is having a very tough time, yet he contributed equally, whenever he could.
 
 ## Videos
 None.
