@@ -6,6 +6,7 @@
 #include "cbir.h"
 #include "ImGuiFileDialog.h"
 
+// converts cv::Mat to an OpenGL texture for imgui rendering
 void matToTexture(const cv::Mat& mat, GLuint& textureID) {
     if (mat.empty()) return;
     if (textureID == 0) glGenTextures(1, &textureID);
@@ -22,7 +23,6 @@ void matToTexture(const cv::Mat& mat, GLuint& textureID) {
 }
 
 int main(int, char**) {
-    // Setup window
     if (!glfwInit()) return 1;
     const char* glsl_version = "#version 150";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -35,31 +35,26 @@ int main(int, char**) {
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
 
-    // Setup ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-
     ImGui::StyleColorsDark();
-
-    // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
-    // Our state
     std::string target_image_path = "";
     GLuint target_texture = 0;
     std::vector<Match> matches;
     std::vector<GLuint> match_textures;
-    
-    const char* tasks[] = { "Baseline", "Histogram (Color)", "Multi-Histogram", "Texture & Color", "Deep Network (DNN)", "Custom DNN (ResNet18)", "Custom Design", "Blue Trash Can Finder", "Face Detector", "Gabor Filter (Texture)" };
-    const char* task_keys[] = { "baseline", "histogram", "multi-histogram", "texture-color", "dnn", "custom_dnn", "custom", "trashcan", "face", "gabor" };
+
+    // task labels shown in dropdown vs keys passed to find_matches
+    const char* tasks[] = { "Baseline", "Histogram (Color)", "Multi-Histogram", "Texture & Color", "Deep Network (DNN)", "Custom DNN (ResNet18)", "Color-based Banana Finder", "Custom Design", "Blue Trash Can Finder", "Face Detector", "Gabor Filter (Texture)" };
+    const char* task_keys[] = { "baseline", "histogram", "multi-histogram", "texture-color", "dnn", "custom_dnn", "banana", "custom", "trashcan", "face", "gabor" };
     static int current_task = 0;
 
     const char* results_options[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" };
-    static int num_results = 3; // Corresponds to "4" in the options array
+    static int num_results = 3; // index 3 = "4" results
 
-    // Main loop
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
@@ -67,12 +62,10 @@ int main(int, char**) {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // Main GUI Window
         ImGui::SetNextWindowSize(ImVec2(800, 600));
         ImGui::SetNextWindowPos(ImVec2(0, 0));
         ImGui::Begin("Content-Based Image Retrieval");
 
-        // File Dialog
         if (ImGui::Button("Browse...")) {
             const IGFD::FileDialogConfig config = { .path = "olympus/" };
             ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".jpg,.png", config);
@@ -93,14 +86,12 @@ int main(int, char**) {
         ImGui::SameLine();
         ImGui::Text("Target Image: %s", target_image_path.c_str());
 
-        // Target image display
         if (target_texture != 0) {
             ImGui::Image((void*)(intptr_t)target_texture, ImVec2(200, 200));
         }
 
         ImGui::Separator();
 
-        // Controls
         ImGui::Combo("Task", &current_task, tasks, IM_ARRAYSIZE(tasks));
         ImGui::Combo("Number of Results", &num_results, results_options, IM_ARRAYSIZE(results_options));
 
@@ -111,14 +102,12 @@ int main(int, char**) {
                 if (task == "custom_dnn") {
                     csv_path = "Custom_ResNet18_olym.csv";
                 }
-                
+
                 matches = find_matches(target_image_path, task, std::stoi(results_options[num_results]), "olympus", csv_path);
-                
-                // Clear old textures
+
                 for(auto& tex : match_textures) glDeleteTextures(1, &tex);
                 match_textures.assign(matches.size(), 0);
 
-                // Create new textures
                 for (size_t i = 0; i < matches.size(); ++i) {
                     cv::Mat img = cv::imread(matches[i].filename);
                     matToTexture(img, match_textures[i]);
@@ -132,7 +121,6 @@ int main(int, char**) {
 
         ImGui::Separator();
 
-        // Results display
         ImGui::Text("Results:");
         int actual_num_results = std::stoi(results_options[num_results]);
         for (size_t i = 0; i < matches.size() && i < actual_num_results; ++i) {
@@ -147,7 +135,6 @@ int main(int, char**) {
 
         ImGui::End();
 
-        // Rendering
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
@@ -159,11 +146,9 @@ int main(int, char**) {
         glfwSwapBuffers(window);
     }
 
-    // Cleanup
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-
     glfwDestroyWindow(window);
     glfwTerminate();
 

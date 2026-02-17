@@ -288,7 +288,80 @@ cv::Mat bottom_region_hsv_histogram(const cv::Mat& image, int h_bins, int s_bins
     return hsv_histogram(bottom_region, h_bins, s_bins);
 }
 
+// scores how likely an image contains a banana (yellow + elongated shape)
+double banana_feature(const cv::Mat& image) {
+    cv::Mat hsv_image;
+    cv::cvtColor(image, hsv_image, cv::COLOR_BGR2HSV);
 
+    // banana yellow specifically - tighter hue to exclude orange chairs/objects
+    cv::Mat mask;
+    cv::inRange(hsv_image, cv::Scalar(20, 80, 80), cv::Scalar(35, 255, 255), mask);
+
+    // small kernel so we don't erase tiny bananas (pic_0346)
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3));
+    cv::morphologyEx(mask, mask, cv::MORPH_OPEN, kernel);
+    cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel);
+
+    double total_yellow_pixels = cv::countNonZero(mask);
+    double total_pixels = image.rows * image.cols;
+    double yellow_percentage = (total_yellow_pixels / total_pixels) * 100.0;
+
+    // barely any yellow at all - skip
+    if (yellow_percentage < 0.1) return 0.0;
+
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    std::sort(contours.begin(), contours.end(), [](const std::vector<cv::Point>& a, const std::vector<cv::Point>& b) {
+        return cv::contourArea(a) > cv::contourArea(b);
+    });
+
+    double best_shape_score = 0.0;
+
+    for (size_t i = 0; i < std::min(contours.size(), (size_t)5); ++i) {
+        double area = cv::contourArea(contours[i]);
+        if (area < 50) continue;
+
+        cv::RotatedRect minRect = cv::minAreaRect(contours[i]);
+        float w = minRect.size.width;
+        float h = minRect.size.height;
+        if (std::min(w, h) < 1) continue;
+        float aspect_ratio = std::max(w, h) / std::min(w, h);
+
+        // bananas are elongated - aspect ratio typically 2-6
+        double elongation = std::exp(-0.5 * std::pow((aspect_ratio - 3.5) / 2.0, 2));
+
+        // solidity - single banana ~0.6-0.85, bunch can be higher
+        std::vector<cv::Point> hull;
+        cv::convexHull(contours[i], hull);
+        double hull_area = cv::contourArea(hull);
+        double solidity = (hull_area > 0) ? area / hull_area : 0;
+        // accept a wider range of solidities (0.4-0.95)
+        double solidity_score = (solidity > 0.4) ? std::min(solidity / 0.7, 1.0) : solidity;
+
+        // reject very round blobs (oranges, lemons etc) - need at least 1.5 aspect ratio
+        if (aspect_ratio < 1.3) {
+            elongation *= 0.2;
+        }
+
+        double shape_score = 0.6 * elongation + 0.4 * solidity_score;
+        best_shape_score = std::max(best_shape_score, shape_score);
+    }
+
+    // color score saturates at 3% yellow (bananas are small in most photos)
+    double color_score = std::min(yellow_percentage / 3.0, 1.0);
+
+    // shape matters most - lots of things are yellow
+    double score;
+    if (best_shape_score > 0.0) {
+        score = (0.35 * color_score + 0.65 * best_shape_score) * 100.0;
+    } else {
+        // no valid contour found, only color - heavily penalized
+        score = color_score * 15.0;
+    }
+
+    return std::min(score, 100.0);
+}
 
 // scores how likely an image contains a blue trash can
 double trash_can_feature(const cv::Mat& image) {
@@ -463,6 +536,85 @@ std::vector<Match> find_matches(const std::string& target_image_path,
                                 const std::string& dnn_metric) {
     std::vector<Match> matches;
 
+    // hybrid banana/trashcan: DNN embeddings + classic color/shape features
+    if (task == "banana" || task == "trashcan") {
+        // try to load embeddings for hybrid mode
+        std::string resolved_csv = csv_path;
+        bool have_embeddings = false;
+        {
+            std::ifstream test(resolved_csv);
+            if (!test.is_open()) {
+                resolved_csv = std::string(PROJECT_ROOT_DIR) + "/" + csv_path;
+                std::ifstream test2(resolved_csv);
+                if (test2.is_open()) have_embeddings = true;
+            } else {
+                have_embeddings = true;
+            }
+        }
+
+        std::map<std::string, std::vector<float>> embeddings;
+        std::vector<float> target_embedding;
+        if (have_embeddings) {
+            embeddings = read_embeddings_csv(resolved_csv);
+            std::string target_fname = extract_filename(target_image_path);
+            if (embeddings.count(target_fname)) {
+                target_embedding = embeddings[target_fname];
+                std::cout << "Hybrid mode: loaded " << embeddings.size() << " embeddings" << std::endl;
+            } else {
+                std::cout << "Target not in CSV, falling back to classic-only mode" << std::endl;
+                have_embeddings = false;
+            }
+        }
+
+        if (have_embeddings && !target_embedding.empty()) {
+            // hybrid: classic detector finds candidates, DNN ranks them
+            std::vector<std::string> image_files = get_image_files(image_database_path);
+
+            // tier 1: images where classic detector found the object
+            // tier 2: images where it didn't, ranked by DNN only
+            std::vector<Match> tier1, tier2;
+
+            for (const auto& file_path : image_files) {
+                std::string fname = extract_filename(file_path);
+                if (fname == extract_filename(target_image_path)) continue;
+
+                // classic feature score (0-100)
+                cv::Mat img = cv::imread(file_path);
+                if (img.empty()) continue;
+                double classic_score = (task == "banana") ? banana_feature(img) : trash_can_feature(img);
+
+                // DNN cosine distance (0-2, lower = more similar)
+                double dnn_dist = 2.0;
+                if (embeddings.count(fname)) {
+                    dnn_dist = cosine_distance(target_embedding, embeddings[fname]);
+                }
+
+                if (classic_score > 5.0) {
+                    // object detected - rank by DNN similarity, boosted by classic confidence
+                    // higher classic_score = lower distance (bonus up to -0.3)
+                    double classic_bonus = (classic_score / 100.0) * 0.3;
+                    double distance = dnn_dist - classic_bonus;
+                    tier1.push_back({file_path, distance});
+                } else {
+                    // no object detected - push far away, DNN as tiebreaker
+                    double distance = 10.0 + dnn_dist;
+                    tier2.push_back({file_path, distance});
+                }
+            }
+
+            // combine: all tier1 results come before tier2
+            std::sort(tier1.begin(), tier1.end(), compareMatches);
+            std::sort(tier2.begin(), tier2.end(), compareMatches);
+            matches.insert(matches.end(), tier1.begin(), tier1.end());
+            matches.insert(matches.end(), tier2.begin(), tier2.end());
+
+            std::cout << "Hybrid: " << tier1.size() << " candidates with object, "
+                      << tier2.size() << " without" << std::endl;
+            return matches;
+        }
+        // if no embeddings, fall through to classic-only path below
+    }
+
     if (task == "dnn" || task == "custom_dnn") {
         // try csv path as-is, then fall back to project root
         std::string resolved_csv = csv_path;
@@ -599,7 +751,9 @@ std::vector<Match> find_matches(const std::string& target_image_path,
                 double texture_dist = histogram_intersection(target_texture, curr_texture);
 
                 distance = 0.30 * whole_hsv_dist + 0.20 * top_hsv_dist + 0.20 * bottom_hsv_dist + 0.15 * texture_dist + 0.15 * edge_dist;
-
+            } else if (task == "banana") {
+                double current_banana_feature = banana_feature(current_image);
+                distance = 100.0 - current_banana_feature;
             } else if (task == "trashcan") {
                 double current_trashcan_feature = trash_can_feature(current_image);
                 distance = 100.0 - current_trashcan_feature;
