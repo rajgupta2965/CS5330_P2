@@ -1,3 +1,17 @@
+/*
+Name: Sangeeth Deleep Menon
+NUID: 002524579
+Program: MSCS - Boston
+Course: CS5330; Pattern Recognition and Computer Vision
+Section: 03 | CRN: 40669 | Online
+
+Name: Raj Gupta
+NUID: 002068701
+Program: MSCS - Boston
+Course: CS5330; Pattern Recognition and Computer Vision
+Section: 01 | CRN: 38745 | Online
+*/
+
 #include <iostream>
 #include <fstream>
 #include <vector>
