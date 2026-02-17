@@ -23,7 +23,7 @@ The system is executed via a command-line interface that allows the user to spec
 **Command:** `./cmake-build-debug/Project2 baseline olympus/pic.1016.jpg 4`  
 **Target Image:** `olympus/pic.1016.jpg`  
 
-![pic.1016.jpg](olympus/pic.1016.jpg)
+<img src="olympus/pic.1016.jpg" width="300">
 
 **Top Matches:**
 `olympus/pic.0986.jpg`, `olympus/pic.0641.jpg`, `olympus/pic.0547.jpg`, `olympus/pic.1013.jpg`
@@ -40,7 +40,7 @@ Uses a 2D rg chromaticity histogram with 16×16 bins. Chromaticity values (r/(r+
 **Command:** `./cmake-build-debug/Project2 histogram olympus/pic.0164.jpg 3`  
 **Target Image:** `olympus/pic.0164.jpg`  
 
-![pic.0164.jpg](olympus/pic.0164.jpg)
+<img src="olympus/pic.0164.jpg" width="300">
 
 **Top Matches:** `olympus/pic.0080.jpg`, `olympus/pic.1032.jpg`, `olympus/pic.0461.jpg`
 
@@ -53,7 +53,7 @@ Uses a 3D RGB histogram with 8 bins per channel (8×8×8 = 512 total bins). This
 **Command:** `./cmake-build-debug/Project2 histogram2 olympus/pic.0164.jpg 3`  
 **Target Image:** `olympus/pic.0164.jpg`  
 
-![pic.0164.jpg](olympus/pic.0164.jpg)
+<img src="olympus/pic.0164.jpg" width="300">
 
 **Top Matches:**  `olympus/pic.0110.jpg`, `olympus/pic.1032.jpg`, `olympus/pic.0092.jpg`
 
@@ -66,7 +66,7 @@ Uses a 2D HSV histogram with 32×32 bins over the Hue and Saturation channels. T
 **Command:** `./cmake-build-debug/Project2 histogram3 olympus/pic.0164.jpg 3`  
 **Target Image:** `olympus/pic.0164.jpg`  
 
-![pic.0164.jpg](olympus/pic.0164.jpg)
+<img src="olympus/pic.0164.jpg" width="300">
 
 **Top Matches:** `olympus/pic.0080.jpg`, `olympus/pic.0166.jpg`, `olympus/pic.0110.jpg`
 
@@ -78,7 +78,7 @@ Uses a 2D HSV histogram with 32×32 bins over the Hue and Saturation channels. T
 **Command:** `./cmake-build-debug/Project2 multi-histogram olympus/pic.0274.jpg 3`  
 **Target Image:** `olympus/pic.0274.jpg`  
 
-![pic.0274.jpg](olympus/pic.0274.jpg)
+<img src="olympus/pic.0274.jpg" width="300">
 
 **Top Matches:** `olympus/pic.0273.jpg`, `olympus/pic.1031.jpg`, `olympus/pic.0409.jpg`
 
@@ -92,7 +92,7 @@ Uses a 2D HSV histogram with 32×32 bins over the Hue and Saturation channels. T
 **Command:** `./cmake-build-debug/Project2 texture-color olympus/pic.0535.jpg 3`  
 **Target Image:** `olympus/pic.0535.jpg`  
 
-![pic.0535.jpg](olympus/pic.0535.jpg)
+<img src="olympus/pic.0535.jpg" width="300">
 
 **Top Matches:** `olympus/pic.0171.jpg`, `olympus/pic.0829.jpg`, `olympus/pic.0853.jpg`
 
@@ -123,7 +123,7 @@ By splitting into top/bottom halves, it adds spatial awareness. `olympus/pic.028
 
 ### Target Image 1: `olympus/pic.0893.jpg`
 
-![pic.0893.jpg](olympus/pic.0893.jpg)
+<img src="olympus/pic.0893.jpg" width="300">
 
 **Top Matches (DNN):** `olympus/pic.0897.jpg`, `olympus/pic.0136.jpg`, `olympus/pic.0146.jpg`  
 
@@ -132,7 +132,7 @@ By splitting into top/bottom halves, it adds spatial awareness. `olympus/pic.028
 
 ### Target Image 2: `olympus/pic.0164.jpg`
 
-![pic.0164.jpg](olympus/pic.0164.jpg)
+<img src="olympus/pic.0164.jpg" width="300">
 
 **Top Matches (DNN):** `olympus/pic.1032.jpg`, `olympus/pic.0213.jpg`, `olympus/pic.0690.jpg`  
 
@@ -165,7 +165,7 @@ This section compares DNN results against classic feature method like Histogram 
 
 ### Image 1: `olympus/pic.1072.jpg`
 
-![pic.1072.jpg](olympus/pic.1072.jpg)
+<img src="olympus/pic.1072.jpg" width="300">
 
 **1. DNN Matches:** `pic.0143.jpg`, `pic.0863.jpg`, `pic.0329.jpg`
 
@@ -191,7 +191,7 @@ This is an interesting case where the histogram method actually outperforms text
 
 ### Image 2: `olympus/pic.0948.jpg`
 
-![pic.0948.jpg](olympus/pic.0948.jpg)
+<img src="olympus/pic.0948.jpg" width="300">
 
 **1. DNN Matches:** `pic.0930.jpg`, `pic.0960.jpg`, `pic.0928.jpg`.
 
@@ -215,7 +215,7 @@ This is a case where DNN clearly dominates. The badger is a small, distinct obje
 
 ### Image 3: `olympus/pic.0734.jpg`
 
-![pic.0734.jpg](olympus/pic.0734.jpg)
+<img src="olympus/pic.0734.jpg" width="300">
 
 **1. DNN Matches:** `pic.0731.jpg`, `pic.0735.jpg`, `pic.0739.jpg`.
 
@@ -258,7 +258,7 @@ The distance metric weights color features at 70% (30% whole, 20% top, 20% botto
 ### Target Image 1: `olympus/pic.0746.jpg`
 **Command:** `./cmake-build-debug/Project2 custom olympus/pic.0746.jpg 5`
 
-![pic.0746.jpg](olympus/pic.0746.jpg)
+<img src="olympus/pic.0746.jpg" width="300">
 
 **Top 5 Matches:** `pic.0747.jpg`, `pic.0755`, `pic.0750`, `pic.0754`, `pic.0752`.
 
@@ -279,7 +279,7 @@ The distance metric weights color features at 70% (30% whole, 20% top, 20% botto
 ### Target Image 2: `olympus/pic.0369.jpg`
 **Command:** `./cmake-build-debug/Project2 custom olympus/pic.0369.jpg 5`
 
-![pic.0369.jpg](olympus/pic.0369.jpg)
+<img src="olympus/pic.0369.jpg" width="300">
 
 **Top 5 Matches:** `pic.0380.jpg`, `pic.1038`, `pic.0370`, `pic.0234`, `pic.0371`.
 
@@ -322,7 +322,7 @@ This method ranks images by the percentage of a specific shade of blue, designed
 
 **Target Image:** `olympus/pic.0287.jpg`
 
-![pic.0287.jpg](olympus/pic.0287.jpg)
+<img src="olympus/pic.0287.jpg" width="300">
 
 **Matches:** `olympus/pic.0291.jpg`, `olympus/pic.0289.jpg`, `olympus/pic.0591.jpg`, `olympus/pic.0766.jpg`, `olympus/pic.0288.jpg`.
 
@@ -333,7 +333,7 @@ A simple color-based detector that ranks images by the percentage of yellow pixe
 
 **Target Image:** `olympus/pic.0343.jpg`
 
-![pic.0343.jpg](olympus/pic.0343.jpg)
+<img src="olympus/pic.0343.jpg" width="300">
 
 **Matches:** `olympus/pic.0345.jpg`, `olympus/pic.0772.jpg`.
 
@@ -344,7 +344,7 @@ This method uses an OpenCV Haar Cascade classifier to detect faces in images. It
 
 **Target Image:** `olympus/pic.0395.jpg`  
 
-![pic.0395.jpg](olympus/pic.0395.jpg)
+<img src="olympus/pic.0395.jpg" width="300">
 
 **Matches:** `olympus/pic.0348.jpg`, `olympus/pic.0397.jpg`  
 
@@ -355,7 +355,7 @@ This method uses a bank of Gabor filters with different orientations and frequen
 
 **Target Image:** `olympus/pic.0890.jpg`  
 
-![pic.0890.jpg](olympus/pic.0890.jpg)
+<img src="olympus/pic.0890.jpg" width="300">
 
 **Matches:** `olympus/pic.0703.jpg`, `olympus/pic.0446.jpg`, `olympus/pic.0908.jpg`, `olympus/pic.0977.jpg`
 
